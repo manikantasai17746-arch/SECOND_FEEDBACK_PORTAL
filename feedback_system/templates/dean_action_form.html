@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}{% if action %}Edit{% else %}New{% endif %} Action — Dean{% endblock %}
+{% block body %}
+<div class="container page">
+  <div class="page-header">
+    <h1>{% if action %}Edit action{% else %}New improvement action{% endif %}</h1>
+    <nav class="subnav">
+      <a href="{{ url_for('dean.actions') }}">← Actions</a>
+    </nav>
+  </div>
+  {% if prefill %}<p class="sub" style="margin:0 0 .75rem;padding:.6rem .9rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px">Pre-filled from the teacher's feedback result. Review and edit anything before saving.</p>{% endif %}
+  {% if action and action.hod_reply %}
+  <div class="card" style="margin-bottom:1rem;border-left:4px solid #16a34a">
+    <h2 style="margin-top:0">HOD reply <span class="muted" style="font-size:.8rem">{{ action.hod_replied_at }}</span></h2>
+    <div style="white-space:pre-wrap">{{ action.hod_reply }}</div>
+  </div>
+  {% endif %}
+  <form method="post" class="card">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="field"><label>Title *</label>
+      <input type="text" name="title" required maxlength="200"
+             value="{{ action.title if action else (prefill.title if prefill else '') }}"></div>
+    <div class="field"><label>Description</label>
+      <textarea name="description" rows="4">{{ action.description if action else (prefill.description if prefill else '') }}</textarea></div>
+    <div class="field"><label>Department</label>
+      <select name="branch_id">
+        <option value="">—</option>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {{ 'selected' if (action and action.branch_id == b.id) or (not action and prefill and prefill.branch_id == b.id) }}>{{ b.code }} — {{ b.name }}</option>
+        {% endfor %}
+      </select></div>
+    <div class="field"><label>Status</label>
+      <select name="status">
+        {% for s in ['planned','in_progress','completed','cancelled'] %}
+        <option value="{{ s }}" {{ 'selected' if action and action.status == s }}>{{ s }}</option>
+        {% endfor %}
+      </select></div>
+    <div class="field"><label>Priority</label>
+      <select name="priority">
+        {% for p in ['low','medium','high','critical'] %}
+        <option value="{{ p }}" {{ 'selected' if (action and action.priority == p) or (not action and p == (prefill.priority if prefill else 'medium')) }}>{{ p }}</option>
+        {% endfor %}
+      </select></div>
+    <div class="field"><label>Assign to HOD</label>
+      <select name="owner_user_id" id="ownerSel">
+        <option value="">— Not assigned to a HOD —</option>
+        {% for h in hods %}
+        <option value="{{ h.id }}" data-branches="{{ h.branches|join(',') }}"
+                {{ 'selected' if (action and action.owner_user_id == h.id) or (not action and prefill and prefill.owner_user_id == h.id) }}>{{ h.name }}{% if h.emp_code %} ({{ h.emp_code }}){% endif %}</option>
+        {% endfor %}
+      </select>
+      <small class="muted">The HOD is emailed and will see this action under “My Actions” and can update its progress.
+        Only HODs of the selected department are listed.</small></div>
+    <div class="field"><label>Other owner (optional, if not a HOD)</label>
+      <input type="text" name="owner_name" maxlength="120"
+             value="{{ action.owner_name if action and not action.owner_user_id else '' }}"></div>
+    <div class="field"><label>Due date</label>
+      <input type="date" name="due_date" value="{{ action.due_date if action and action.due_date else (prefill.due_date if prefill and not action else '') }}"></div>
+    {% if action %}
+    <div class="field"><label>Change note</label>
+      <input type="text" name="note" placeholder="Optional note for the audit log"></div>
+    {% endif %}
+    <button class="btn btn-ok" type="submit">Save</button>
+  </form>
+  {% if logs %}
+  <div class="card" style="margin-top:1rem">
+    <h2>Audit log</h2>
+    <ul>
+      {% for l in logs %}
+      <li><span class="muted">{{ l.created_at }}</span> —
+        {{ l.old_status or '—' }} → {{ l.new_status or '—' }}
+        {% if l.note %}: {{ l.note }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var dept = document.querySelector('select[name=branch_id]');
+  var owner = document.getElementById('ownerSel');
+  if (!dept || !owner) return;
+  function filter() {
+    var b = dept.value;
+    Array.prototype.forEach.call(owner.options, function (o) {
+      if (!o.value) return;
+      var ok = !b || (o.dataset.branches || '').split(',').indexOf(b) !== -1;
+      o.hidden = !ok; o.disabled = !ok;
+      if (!ok && o.selected) owner.value = '';
+    });
+  }
+  dept.addEventListener('change', filter);
+  filter();
+})();
+</script>
+{% endblock %}

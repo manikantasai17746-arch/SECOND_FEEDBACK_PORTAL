@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% import '_macros.html' as m %}
+{% block title %}{{ teacher.name }} — Performance (Dean){% endblock %}
+{% block body %}
+{{ m.back(url_for('dean.performance', branch_id=back_branch) if back_branch else url_for('dean.performance'), 'Back to faculty performance') }}
+
+{% set tname = teacher.name or 'Faculty' %}
+{% set initials = (tname.split()|map('first')|join('')|upper)[:2] %}
+
+<div class="subject-detail-head">
+  <div>
+    <h1 style="margin:0 0 .35rem;font-size:1.25rem">{{ tname }} <span class="muted">({{ teacher.emp_code }})</span></h1>
+    <p class="sub" style="margin:0">Anonymous results and comments — no student identity is ever shown.</p>
+  </div>
+  <a class="btn btn-accent btn-sm" href="#" onclick="window.print();return false;">⬇ Download PDF Report</a>
+</div>
+
+{% include '_faculty_result_cards.html' %}
+{% endblock %}

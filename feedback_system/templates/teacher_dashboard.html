@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% import '_macros.html' as m %}
+{% block title %}My Performance — Faculty Feedback{% endblock %}
+{% block body %}
+{% if setup_complete %}
+<script>
+  window.addEventListener('load', function () {
+    window.alert('Configuration saved. Your setup is complete.');
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, '{{ url_for("teacher.dashboard") }}');
+    }
+  });
+</script>
+{% endif %}
+<div class="perf-welcome">
+  <div>
+    <h1>Welcome, {{ current_user.name }}</h1>
+    <p class="sub" style="margin:0">
+      Employee code: {{ current_user.emp_code or '—' }}
+      {% if department %} | Department: {{ department }}{% endif %}
+    </p>
+    <p style="margin:.45rem 0 0">
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('teacher.improvement') }}">📈 My Improvement — round-by-round comparison</a>
+    </p>
+  </div>
+  <form method="get" class="perf-filters">
+    <div class="field" style="margin:0">
+      <label for="academic_year_id" class="sub">Academic Year</label>
+      <select id="academic_year_id" name="academic_year_id" onchange="this.form.submit()">
+        <option value="">All years</option>
+        {% for y in years %}
+        <option value="{{ y.id }}" {{ 'selected' if academic_year_id == y.id }}>{{ y.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label for="semester_id" class="sub">Semester</label>
+      <select id="semester_id" name="semester_id" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for s in semesters %}
+        <option value="{{ s.id }}" {{ 'selected' if semester_id == s.id }}>
+          {{ s.label or (s.number ~ ' Semester') }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if subjects and subjects|length > 1 %}
+    <div class="field" style="margin:0">
+      <label for="subject_code" class="sub">Subject</label>
+      <select id="subject_code" name="subject_code" onchange="this.form.submit()">
+        <option value="">All my subjects</option>
+        {% for s in subjects %}
+        <option value="{{ s.subject_code }}" {{ 'selected' if subject_code == s.subject_code }}>
+          {{ s.subject_name or s.subject_code }} ({{ s.subject_code }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% elif subject_code %}
+      <input type="hidden" name="subject_code" value="{{ subject_code }}">
+    {% endif %}
+  </form>
+</div>
+
+<div class="perf-tiles">
+  <div class="perf-tile t-subjects">
+    <div class="ic">📘</div>
+    <div><div class="num">{{ stats.subjects }}</div><div class="lbl">Subjects</div></div>
+  </div>
+  <div class="perf-tile t-eligible">
+    <div class="ic">👥</div>
+    <div><div class="num">{{ stats.eligible }}</div><div class="lbl">Total Eligible Students</div></div>
+  </div>
+  <div class="perf-tile t-responses">
+    <div class="ic">✓</div>
+    <div><div class="num">{{ stats.responses }}</div><div class="lbl">Total Students Responded</div></div>
+  </div>
+  <div class="perf-tile t-score">
+    <div class="ic">★</div>
+    <div>
+      <div class="num">
+        {% if stats.obtained is defined and stats.maximum is defined and stats.maximum %}
+          {{ '%.1f'|format(stats.obtained) }} / {{ '%.0f'|format(stats.maximum) }}
+        {% else %}—{% endif %}
+      </div>
+      <div class="lbl">Total Marks (obtained / max)</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">📊 My Subjects Performance</h2>
+  {% if rows %}
+  <div style="overflow-x:auto">
+    <table class="marks-table">
+      <thead>
+        <tr>
+          <th>S.No</th>
+          <th>Subject Code</th>
+          <th>Subject Name</th>
+          <th>Section</th>
+          <th>Feedback Form</th>
+          <th>Eligible Students</th>
+          <th>Students Responded</th>
+          <th>Not Responded</th>
+          <th>Marks / Question</th>
+          <th>Obtained Marks</th>
+          <th>Max Marks</th>
+          <th>Score / 100</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set f = r.form %}
+        {% set role = r.get('role') or 'main' %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ f.subject_code or '—' }}</td>
+          <td>
+            {{ f.subject_name or f.title or '—' }}
+            <div class="role-line">
+              {% if role == 'second' %}
+                <span class="role-badge role-second">👥 Second Faculty</span>
+              {% elif role == 'lab' %}
+                <span class="role-badge role-lab">🧪 Lab Faculty</span>
+              {% else %}
+                <span class="role-badge role-main">🎓 Main Faculty</span>
+              {% endif %}
+              <span class="room-chip{{ ' room-chip-empty' if not r.get('room') }}">
+                {{ 'Lab room' if role == 'lab' else 'Room' }}: {{ r.room or 'not set' }}
+              </span>
+            </div>
+            {% if role == 'second' and r.get('main_name') %}
+            <div class="sub role-note">Main faculty: {{ r.main_name }}{% if r.main_emp_code %} ({{ r.main_emp_code }}){% endif %}</div>
+            {% elif role == 'lab' %}
+            <div class="sub role-note">Lab hours of this class</div>
+            {% endif %}
+          </td>
+          <td>{{ r.section or '—' }}</td>
+          <td class="form-cell">
+            {% if f.id %}
+              <div class="form-title-line">{{ f.title or ('Feedback Form #' ~ f.id) }}</div>
+              <div class="form-meta">
+                {% if r.round_label %}
+                  <span class="round-badge">{{ r.round_label }}{% if r.rounds_total and r.rounds_total > 1 %} of {{ r.rounds_total }}{% endif %}</span>
+                {% endif %}
+                {% if r.get('unpublished') %}<span class="pending-badge">Results not published</span>{% endif %}
+                {% if r.created_at %}<span class="sub">{{ r.created_at|string|truncate(10, True, '') }}</span>{% endif %}
+                {% if r.response_pct is not none %}<span class="sub">{{ r.response_pct }}% responded</span>{% endif %}
+              </div>
+            {% else %}
+              <span class="sub">No feedback form published</span>
+            {% endif %}
+          </td>
+          <td>{{ r.eligible }}</td>
+          <td>{{ r.responses }}</td>
+          <td>{{ r.not_submitted }}</td>
+          {% if r.get('unpublished') %}
+          {# Not published: only form name, eligible and responded are shown. #}
+          <td class="sub">—</td>
+          <td class="sub">—</td>
+          <td class="sub">—</td>
+          <td class="sub">—</td>
+          <td><span class="sub">Not published yet</span></td>
+          {% else %}
+          <td>{% if r.marks_per_question is not none %}{{ '%.2f'|format(r.marks_per_question) }}{% else %}—{% endif %}</td>
+          <td>{{ r.obtained_marks if r.obtained_marks is not none else '—' }}</td>
+          <td>{{ r.max_marks if r.max_marks is not none else '—' }}</td>
+          <td>
+            {% if r.score is not none %}
+              <span class="score-pill">{{ '%.2f'|format(r.score) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if f.id %}
+            <a class="btn btn-ghost btn-sm" href="{{ url_for('teacher.results', form_id=f.id, section=r.section_id) }}">👁 View Details</a>
+            {% else %}<span class="sub">—</span>{% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {{ m.empty('No subjects assigned yet.',
+       'Once your timetable is imported and feedback is published, results will appear here.') }}
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% import '_macros.html' as m %}
+{% block title %}{{ teacher.name }} — Performance{% endblock %}
+{% block body %}
+{{ m.back(url_for('hod.performance'), 'Back to faculty performance') }}
+
+{% set tname = teacher.name or 'Faculty' %}
+{% set initials = (tname.split()|map('first')|join('')|upper)[:2] %}
+
+<div class="subject-detail-head">
+  <div>
+    <h1 style="margin:0 0 .35rem;font-size:1.25rem">{{ tname }} <span class="muted">({{ teacher.emp_code }})</span></h1>
+    <p class="sub" style="margin:0">Anonymous results and comments — no student identity is ever shown.
+      <a href="{{ url_for('hod.performance_compare', teacher_id=teacher.id) }}">Compare periods</a></p>
+  </div>
+  <a class="btn btn-accent btn-sm" href="#" onclick="window.print();return false;">⬇ Download PDF Report</a>
+</div>
+
+{% include '_faculty_result_cards.html' %}
+{% endblock %}
